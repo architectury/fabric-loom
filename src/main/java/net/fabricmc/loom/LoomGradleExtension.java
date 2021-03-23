@@ -39,6 +39,9 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.google.gson.JsonObject;
+
+import net.fabricmc.loom.util.function.NamedSupplier;
+
 import org.cadixdev.lorenz.MappingSet;
 import org.cadixdev.mercury.Mercury;
 import org.gradle.api.Action;
@@ -167,6 +170,36 @@ public class LoomGradleExtension {
 					forgeLocalMods.add(() -> (SourceSet) sourceSet);
 				} else {
 					forgeLocalMods.add(() -> project.getConvention().getPlugin(JavaPluginConvention.class).getSourceSets().findByName(String.valueOf(forgeLocalMods)));
+				}
+			}
+		}
+
+		public void named(String name, Object... sourceSets) {
+			for (Object sourceSet : sourceSets) {
+				if (sourceSet instanceof SourceSet) {
+					forgeLocalMods.add(new NamedSupplier<SourceSet>() {
+						@Override
+						public SourceSet get() {
+							return (SourceSet) sourceSet;
+						}
+
+						@Override
+						public String getName() {
+							return name;
+						}
+					});
+				} else {
+					forgeLocalMods.add(new NamedSupplier<SourceSet>() {
+						@Override
+						public SourceSet get() {
+							return project.getConvention().getPlugin(JavaPluginConvention.class).getSourceSets().findByName(String.valueOf(forgeLocalMods));
+						}
+
+						@Override
+						public String getName() {
+							return name;
+						}
+					});
 				}
 			}
 		}
