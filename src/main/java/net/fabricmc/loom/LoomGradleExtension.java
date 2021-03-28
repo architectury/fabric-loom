@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 
 import com.google.gson.JsonObject;
 
+import net.fabricmc.loom.configuration.mods.ModSourceConsumer;
 import net.fabricmc.loom.util.function.NamedSupplier;
 
 import org.cadixdev.lorenz.MappingSet;
@@ -164,6 +165,9 @@ public class LoomGradleExtension {
 	}
 
 	public class SourceSetConsumer {
+
+		private NamedDomainObjectContainer<ModSourceConsumer> sources = project.container(ModSourceConsumer.class, s -> new ModSourceConsumer(project, s, forgeLocalMods::add));
+
 		public void add(Object... sourceSets) {
 			for (Object sourceSet : sourceSets) {
 				if (sourceSet instanceof SourceSet) {
@@ -174,34 +178,8 @@ public class LoomGradleExtension {
 			}
 		}
 
-		public void named(String name, Object... sourceSets) {
-			for (Object sourceSet : sourceSets) {
-				if (sourceSet instanceof SourceSet) {
-					forgeLocalMods.add(new NamedSupplier<SourceSet>() {
-						@Override
-						public SourceSet get() {
-							return (SourceSet) sourceSet;
-						}
-
-						@Override
-						public String getName() {
-							return name;
-						}
-					});
-				} else {
-					forgeLocalMods.add(new NamedSupplier<SourceSet>() {
-						@Override
-						public SourceSet get() {
-							return project.getConvention().getPlugin(JavaPluginConvention.class).getSourceSets().findByName(String.valueOf(forgeLocalMods));
-						}
-
-						@Override
-						public String getName() {
-							return name;
-						}
-					});
-				}
-			}
+		public NamedDomainObjectContainer<ModSourceConsumer> getSources() {
+			return this.sources;
 		}
 	}
 
