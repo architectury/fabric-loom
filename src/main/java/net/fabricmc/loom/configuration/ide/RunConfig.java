@@ -45,6 +45,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+
+import net.fabricmc.loom.util.function.NamedSupplier;
+
 import org.apache.commons.io.IOUtils;
 import org.gradle.api.Project;
 import org.gradle.api.tasks.SourceSet;
@@ -144,7 +147,11 @@ public class RunConfig {
 
 			for (Supplier<SourceSet> sourceSetSupplier : extension.forgeLocalMods) {
 				SourceSet sourceSet = sourceSetSupplier.get();
-				String sourceSetName = sourceSet.getName() + "_" + UUID.randomUUID().toString().replace("-", "").substring(0, 7);
+				String sourceSetName;
+				if (sourceSetSupplier instanceof NamedSupplier && ((NamedSupplier<SourceSet>) sourceSetSupplier).getName() != null)
+					sourceSetName = ((NamedSupplier<SourceSet>) sourceSetSupplier).getName();
+				else
+					sourceSetName = sourceSet.getName() + "_" + UUID.randomUUID().toString().replace("-", "").substring(0, 7);;
 
 				Stream.concat(
 						Stream.of(sourceSet.getOutput().getResourcesDir().getAbsolutePath()),

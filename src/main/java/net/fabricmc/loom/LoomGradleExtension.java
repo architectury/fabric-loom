@@ -39,6 +39,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.google.gson.JsonObject;
+
+import net.fabricmc.loom.configuration.mods.ModSourceConsumer;
+import net.fabricmc.loom.util.function.NamedSupplier;
+
 import org.cadixdev.lorenz.MappingSet;
 import org.cadixdev.mercury.Mercury;
 import org.gradle.api.Action;
@@ -164,6 +168,9 @@ public class LoomGradleExtension {
 	}
 
 	public class SourceSetConsumer {
+
+		private NamedDomainObjectContainer<ModSourceConsumer> sources = project.container(ModSourceConsumer.class, s -> new ModSourceConsumer(project, s, forgeLocalMods::add));
+
 		public void add(Object... sourceSets) {
 			for (Object sourceSet : sourceSets) {
 				if (sourceSet instanceof SourceSet) {
@@ -172,6 +179,10 @@ public class LoomGradleExtension {
 					forgeLocalMods.add(() -> project.getConvention().getPlugin(JavaPluginConvention.class).getSourceSets().findByName(String.valueOf(forgeLocalMods)));
 				}
 			}
+		}
+
+		public NamedDomainObjectContainer<ModSourceConsumer> getSources() {
+			return this.sources;
 		}
 	}
 
