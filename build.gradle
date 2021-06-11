@@ -128,6 +128,9 @@ dependencies {
 	forgeInjectImplementation ('com.google.guava:guava:21.0')
 	forgeInjectImplementation ('org.apache.logging.log4j:log4j-api:2.11.2')
 
+	// AT processing
+	implementation ('org.cadixdev:at:0.1.0-rc1')
+
 	// Testing
 	testImplementation(gradleTestKit())
 	testImplementation('org.spockframework:spock-core:2.0-M5-groovy-3.0') {
