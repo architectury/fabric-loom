@@ -24,7 +24,26 @@
 
 package net.fabricmc.loom.util;
 
+import java.util.Locale;
+
+import org.gradle.api.GradleException;
+import org.gradle.api.Project;
+
+import net.fabricmc.loom.LoomGradleExtension;
+
 public enum ModPlatform {
 	FABRIC,
-	FORGE,
+	FORGE;
+
+	public static void assertPlatform(Project project, ModPlatform platform) {
+		assertPlatform(project.getExtensions().getByType(LoomGradleExtension.class), platform);
+	}
+
+	public static void assertPlatform(LoomGradleExtension extension, ModPlatform platform) {
+		if (extension.getPlatform() != platform) {
+			var msg = "Loom is not running on %s.%nYou can switch to it by adding 'loom.platform = %s' to your gradle.properties";
+			var name = platform.name().toLowerCase(Locale.ROOT);
+			throw new GradleException(String.format(msg, name, name));
+		}
+	}
 }

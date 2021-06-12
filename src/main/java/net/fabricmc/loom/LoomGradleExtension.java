@@ -155,10 +155,7 @@ public class LoomGradleExtension {
 	}
 
 	public void localMods(Action<SourceSetConsumer> action) {
-		if (!isForge()) {
-			throw new UnsupportedOperationException("Not running with Forge support.");
-		}
-
+		ModPlatform.assertPlatform(this, ModPlatform.FORGE);
 		action.execute(new SourceSetConsumer());
 	}
 
@@ -183,10 +180,7 @@ public class LoomGradleExtension {
 	}
 
 	public void dataGen(Action<DataGenConsumer> action) {
-		if (!isForge()) {
-			throw new UnsupportedOperationException("Not running with Forge support.");
-		}
-
+		ModPlatform.assertPlatform(this, ModPlatform.FORGE);
 		action.execute(new DataGenConsumer());
 	}
 
@@ -507,10 +501,7 @@ public class LoomGradleExtension {
 	}
 
 	public ForgeConfig getForgeConfig() {
-		if (!isForge()) {
-			throw new UnsupportedOperationException("Loom is not running with Forge support!\nAdd loom.platform=forge in your gradle.properties");
-		}
-
+		ModPlatform.assertPlatform(this, ModPlatform.FORGE);
 		return forgeConfig;
 	}
 
@@ -582,5 +573,10 @@ public class LoomGradleExtension {
 	public static final class ForgeConfig {
 		public boolean convertAccessWideners = true;
 		public final Set<String> additionalConvertedAccessWideners = new HashSet<>();
+
+		public void convertAccessWideners(String... paths) {
+			Objects.requireNonNull(paths, "paths");
+			additionalConvertedAccessWideners.addAll(List.of(paths));
+		}
 	}
 }
