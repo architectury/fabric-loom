@@ -24,6 +24,7 @@
 
 package net.fabricmc.loom.util.aw2at;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -35,6 +36,8 @@ import org.cadixdev.at.AccessTransformSet;
 import org.cadixdev.at.ModifierChange;
 import org.cadixdev.bombe.type.signature.MethodSignature;
 
+import net.fabricmc.accesswidener.AccessWidenerReader;
+
 /**
  * Converts AW to AT.
  *
@@ -44,49 +47,36 @@ public final class Aw2At {
 	public static AccessTransformSet toAccessTransformSet(InputStream in) throws IOException {
 		AccessTransformSet atSet = AccessTransformSet.create();
 
-		try (AccessWidenerReader reader = new AccessWidenerReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-			reader.accept(new AccessWidenerReader.Visitor() {
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+			new AccessWidenerReader(new AccessWidenerReader.Visitor() {
 				@Override
-				public void visitClass(String className, AccessWidenerReader.ClassAccess access) {
-					atSet.getOrCreateClass(className).merge(toAt(access));
+				public void visitClass(String name, AccessWidenerReader.AccessType access) {
+					atSet.getOrCreateClass(name).merge(toAt(access));
 				}
 
 				@Override
-				public void visitMethod(String className, String methodName, String descriptor, AccessWidenerReader.MethodAccess access) {
-					atSet.getOrCreateClass(className).mergeMethod(MethodSignature.of(methodName, descriptor), toAt(access));
+				public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access) {
+					atSet.getOrCreateClass(owner).mergeMethod(MethodSignature.of(name, descriptor), toAt(access));
 				}
 
 				@Override
-				public void visitField(String className, String fieldName, String descriptor, AccessWidenerReader.FieldAccess access) {
-					atSet.getOrCreateClass(className).mergeField(fieldName, toAt(access));
+				public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access) {
+					atSet.getOrCreateClass(owner).mergeField(name, toAt(access));
 				}
-			});
+			}).read(reader);
 		}
 
 		return atSet;
 	}
 
-	private static AccessTransform toAt(AccessWidenerReader.ClassAccess access) {
+	private static AccessTransform toAt(AccessWidenerReader.AccessType access) {
 		return switch (access) {
-		case ACCESSIBLE -> AccessTransform.of(AccessChange.PUBLIC);
-		case EXTENDABLE -> AccessTransform.of(AccessChange.PUBLIC, ModifierChange.REMOVE);
-		};
-	}
-
-	private static AccessTransform toAt(AccessWidenerReader.MethodAccess access) {
-		return switch (access) {
-		// FIXME: This behaviour doesn't match what the actual AW does.
+		// FIXME: This behaviour doesn't match what the actual AW does for methods.
 		//   - accessible makes the method final if it was private
 		//   - extendable makes the method protected if it was (package-)private
 		//   Neither of these can be achieved with Forge ATs without using bytecode analysis.
 		case ACCESSIBLE -> AccessTransform.of(AccessChange.PUBLIC);
 		case EXTENDABLE -> AccessTransform.of(AccessChange.PUBLIC, ModifierChange.REMOVE);
-		};
-	}
-
-	private static AccessTransform toAt(AccessWidenerReader.FieldAccess access) {
-		return switch (access) {
-		case ACCESSIBLE -> AccessTransform.of(AccessChange.PUBLIC);
 		case MUTABLE -> AccessTransform.of(ModifierChange.REMOVE);
 		};
 	}
