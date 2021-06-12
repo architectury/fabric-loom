@@ -24,6 +24,7 @@
 
 package net.fabricmc.loom.configuration;
 
+import java.io.File;
 import java.io.IOException;
 
 import com.google.common.base.Preconditions;
@@ -32,6 +33,8 @@ import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.UnknownTaskException;
 import org.gradle.api.plugins.JavaPlugin;
+import org.gradle.api.plugins.JavaPluginConvention;
+import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.bundling.AbstractArchiveTask;
 import org.gradle.api.tasks.bundling.Jar;
 import org.jetbrains.annotations.ApiStatus;
@@ -80,6 +83,41 @@ public class RemapConfiguration {
 			((Jar) jarTask).manifest(manifest -> {
 				manifest.attributes(ImmutableMap.of("MixinConfigs", String.join(",", extension.mixinConfigs)));
 			});
+
+			if (isDefaultRemap) {
+				var forgeConfig = extension.getForgeConfig();
+
+				if (forgeConfig.convertAccessWideners) {
+					var awFiles = remapJarTask.getForgeAccessWidenerFiles();
+
+					if (extension.accessWidener != null) {
+						// Find the relative AW file name
+						String awName = null;
+						var awPath = extension.accessWidener.toPath();
+						var sourceSets = project.getConvention().getByType(JavaPluginConvention.class).getSourceSets();
+						var main = sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME);
+						boolean found = false;
+
+						for (File srcDir : main.getResources().getSrcDirs()) {
+							var srcDirPath = srcDir.toPath().toAbsolutePath();
+
+							if (awPath.startsWith(srcDirPath)) {
+								awName = srcDirPath.relativize(awPath).toString().replace(File.separator, "/");
+								found = true;
+								break;
+							}
+						}
+
+						if (!found) {
+							awName = awPath.getFileName().toString();
+						}
+
+						awFiles.add(awName);
+					}
+
+					awFiles.addAll(forgeConfig.additionalConvertedAccessWideners);
+				}
+			}
 		}
 
 		if (isDefaultRemap) {

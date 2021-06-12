@@ -24,10 +24,14 @@
 
 package net.fabricmc.loom.task;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
@@ -57,12 +61,15 @@ import dev.architectury.refmapremapper.remapper.SimpleReferenceRemapper;
 import dev.architectury.tinyremapper.IMappingProvider;
 import dev.architectury.tinyremapper.TinyRemapper;
 import dev.architectury.tinyremapper.TinyUtils;
+import org.cadixdev.at.AccessTransformSet;
+import org.cadixdev.at.io.AccessTransformFormats;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
+import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.TaskAction;
@@ -86,6 +93,7 @@ import net.fabricmc.loom.util.Constants;
 import net.fabricmc.loom.util.SourceRemapper;
 import net.fabricmc.loom.util.TinyRemapperMappingsHelper;
 import net.fabricmc.loom.util.ZipReprocessorUtil;
+import net.fabricmc.loom.util.aw2at.Aw2At;
 import net.fabricmc.mapping.tree.ClassDef;
 import net.fabricmc.mapping.tree.FieldDef;
 import net.fabricmc.mapping.tree.MethodDef;
@@ -100,6 +108,7 @@ public class RemapJarTask extends Jar {
 	private final List<Action<TinyRemapper.Builder>> remapOptions = new ArrayList<>();
 	private final Property<String> fromM;
 	private final Property<String> toM;
+	private final SetProperty<String> forgeAccessWidenerFiles;
 	public JarRemapper jarRemapper;
 	private FileCollection classpath;
 	private final Set<Object> nestedPaths = new LinkedHashSet<>();
@@ -112,6 +121,7 @@ public class RemapJarTask extends Jar {
 		remapAccessWidener = getProject().getObjects().property(Boolean.class);
 		fromM = getProject().getObjects().property(String.class);
 		toM = getProject().getObjects().property(String.class);
+		forgeAccessWidenerFiles = getProject().getObjects().setProperty(String.class);
 		fromM.set("named");
 		toM.set(SourceRemapper.intermediary(getProject()));
 		// false by default, I have no idea why I have to do it for this property and not the other one
@@ -281,6 +291,44 @@ public class RemapJarTask extends Jar {
 					if (accessWidener != null) {
 						boolean replaced = ZipUtil.replaceEntry(data.output.toFile(), accessWidener.getLeft(), accessWidener.getRight());
 						Preconditions.checkArgument(replaced, "Failed to remap access widener");
+					}
+
+					var awFilesToConvert = forgeAccessWidenerFiles.getOrElse(Collections.emptySet());
+
+					if (!awFilesToConvert.isEmpty()) {
+						AccessTransformSet atSet;
+
+						if (awFilesToConvert.size() == 1) {
+							var awFile = awFilesToConvert.iterator().next();
+							byte[] awBytes = ZipUtil.unpackEntry(data.output.toFile(), awFile);
+
+							try {
+								atSet = Aw2At.toAccessTransformSet(new ByteArrayInputStream(awBytes));
+							} catch (IOException e) {
+								throw new UncheckedIOException("Could not transform AW to AT", e);
+							}
+						} else {
+							atSet = AccessTransformSet.create();
+
+							for (String awFile : awFilesToConvert) {
+								byte[] awBytes = ZipUtil.unpackEntry(data.output.toFile(), awFile);
+
+								try {
+									atSet.merge(Aw2At.toAccessTransformSet(new ByteArrayInputStream(awBytes)));
+								} catch (IOException e) {
+									throw new UncheckedIOException("Could not transform AW to AT", e);
+								}
+							}
+						}
+
+						try {
+							ByteArrayOutputStream out = new ByteArrayOutputStream();
+							OutputStreamWriter writer = new OutputStreamWriter(out, StandardCharsets.UTF_8);
+							AccessTransformFormats.FML.write(writer, atSet);
+							ZipUtil.addEntry(data.output.toFile(), "META-INF/accesstransformer.cfg", out.toByteArray());
+						} catch (IOException e) {
+							throw new UncheckedIOException("Could not add transformed AT to JAR", e);
+						}
 					}
 
 					if (isReproducibleFileOrder() || !isPreserveFileTimestamps()) {
@@ -464,5 +512,10 @@ public class RemapJarTask extends Jar {
 	@Input
 	public Property<String> getToM() {
 		return toM;
+	}
+
+	@Input
+	public SetProperty<String> getForgeAccessWidenerFiles() {
+		return forgeAccessWidenerFiles;
 	}
 }

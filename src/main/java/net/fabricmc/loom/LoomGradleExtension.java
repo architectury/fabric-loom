@@ -96,6 +96,7 @@ public class LoomGradleExtension {
 	private final List<JarProcessor> jarProcessors = new ArrayList<>();
 	private boolean silentMojangMappingsLicense = false;
 	public Boolean generateSrgTiny = null;
+	private final ForgeConfig forgeConfig = new ForgeConfig();
 
 	// Not to be set in the build.gradle
 	private final Project project;
@@ -154,10 +155,7 @@ public class LoomGradleExtension {
 	}
 
 	public void localMods(Action<SourceSetConsumer> action) {
-		if (!isForge()) {
-			throw new UnsupportedOperationException("Not running with Forge support.");
-		}
-
+		ModPlatform.assertPlatform(this, ModPlatform.FORGE);
 		action.execute(new SourceSetConsumer());
 	}
 
@@ -182,10 +180,7 @@ public class LoomGradleExtension {
 	}
 
 	public void dataGen(Action<DataGenConsumer> action) {
-		if (!isForge()) {
-			throw new UnsupportedOperationException("Not running with Forge support.");
-		}
-
+		ModPlatform.assertPlatform(this, ModPlatform.FORGE);
 		action.execute(new DataGenConsumer());
 	}
 
@@ -505,6 +500,15 @@ public class LoomGradleExtension {
 		return getPlatform() == ModPlatform.FORGE;
 	}
 
+	public ForgeConfig getForgeConfig() {
+		ModPlatform.assertPlatform(this, ModPlatform.FORGE);
+		return forgeConfig;
+	}
+
+	public void forge(Action<ForgeConfig> action) {
+		action.execute(getForgeConfig());
+	}
+
 	public boolean supportsInclude() {
 		return !isForge() || supportsInclude.getAsBoolean();
 	}
@@ -564,5 +568,15 @@ public class LoomGradleExtension {
 	@ApiStatus.Internal
 	public LoomProjectData getProjectData() {
 		return projectData;
+	}
+
+	public static final class ForgeConfig {
+		public boolean convertAccessWideners = true;
+		public final Set<String> additionalConvertedAccessWideners = new HashSet<>();
+
+		public void convertAccessWideners(String... paths) {
+			Objects.requireNonNull(paths, "paths");
+			additionalConvertedAccessWideners.addAll(List.of(paths));
+		}
 	}
 }

@@ -94,7 +94,7 @@ dependencies {
 	implementation ('dev.architectury:mappings-layers-core:1.2.7')
 	implementation ('net.fabricmc:tiny-mappings-parser:0.3.0+build.17')
 
-	implementation 'net.fabricmc:access-widener:1.0.0'
+	implementation 'net.fabricmc:access-widener:1.1.0'
 
 	implementation ('net.fabricmc:lorenz-tiny:3.0.0') {
 		transitive = false
@@ -127,6 +127,9 @@ dependencies {
 	forgeInjectImplementation ('com.google.code.gson:gson:2.8.6')
 	forgeInjectImplementation ('com.google.guava:guava:21.0')
 	forgeInjectImplementation ('org.apache.logging.log4j:log4j-api:2.11.2')
+
+	// AT processing
+	implementation ('org.cadixdev:at:0.1.0-rc1')
 
 	// Testing
 	testImplementation(gradleTestKit())
