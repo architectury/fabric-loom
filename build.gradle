@@ -52,9 +52,15 @@ sourceSets {
 
 repositories {
 	mavenCentral()
+	maven { url "https://repo1.maven.org/maven2/"}
 	maven { url "https://maven.fabricmc.net/" }
 	maven { url "https://maven.architectury.dev/" }
-	maven { url "https://maven.minecraftforge.net/" }
+	maven {
+		url "https://maven.minecraftforge.net/"
+		content{
+			excludeGroupByRegex "org.eclipse.*"
+		}
+	}
 }
 
 configurations {
