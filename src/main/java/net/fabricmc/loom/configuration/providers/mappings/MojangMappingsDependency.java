@@ -135,7 +135,7 @@ public class MojangMappingsDependency extends AbstractModuleDependency implement
 			throw new UncheckedIOException(e);
 		}
 
-		Path mappingsFile = mappingsDir.resolve(String.format("mappings-%s.tiny", getVersion()));
+		Path mappingsFile = mappingsDir.resolve(String.format("mojmap-mappigns-%s.jar", getVersion()));
 		Path clientMappings = mappingsDir.resolve("client.map");
 		Path serverMappings = mappingsDir.resolve("server.map");
 
