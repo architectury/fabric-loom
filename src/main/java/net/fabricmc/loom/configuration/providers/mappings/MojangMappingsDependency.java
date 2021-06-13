@@ -128,12 +128,14 @@ public class MojangMappingsDependency extends AbstractModuleDependency implement
 	@Override
 	public Set<File> resolve() {
 		Path mappingsDir;
+
 		try {
 			mappingsDir = extension.getMappingsProvider().getMappedVersionedDir(String.format("mojang/%s.%s-%s", GROUP, MODULE, getVersion()));
 		} catch (IOException e) {
 			throw new UncheckedIOException(e);
 		}
-		Path mappingsFile = mappingsDir.resolve("mappings.tiny");
+
+		Path mappingsFile = mappingsDir.resolve(String.format("mappings-%s.tiny", getVersion()));
 		Path clientMappings = mappingsDir.resolve("client.map");
 		Path serverMappings = mappingsDir.resolve("server.map");
 
