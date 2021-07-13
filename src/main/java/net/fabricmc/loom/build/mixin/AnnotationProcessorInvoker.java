@@ -99,6 +99,10 @@ public abstract class AnnotationProcessorInvoker<T extends Task> {
 								configs.getByName(Constants.Configurations.MAPPINGS_FINAL)
 				);
 
+				if (extension.isForge()) {
+					processorConfig.extendsFrom(configs.getByName(Constants.Configurations.FORGE_NAMED));
+				}
+
 				// Add Mixin and mixin extensions (fabric-mixin-compile-extensions pulls mixin itself too)
 				project.getDependencies().add(processorConfig.getName(),
 								Constants.Dependencies.MIXIN_COMPILE_EXTENSIONS + Constants.Dependencies.Versions.MIXIN_COMPILE_EXTENSIONS);

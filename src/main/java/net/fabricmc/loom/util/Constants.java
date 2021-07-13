@@ -75,6 +75,7 @@ public class Constants {
 		public static final String FORGE_INSTALLER = "forgeInstaller";
 		public static final String FORGE_UNIVERSAL = "forgeUniversal";
 		public static final String FORGE_DEPENDENCIES = "forgeDependencies";
+		public static final String FORGE_NAMED = "forgeNamed";
 		public static final String MAPPING_CONSTANTS = "mappingsConstants";
 		public static final String UNPICK_CLASSPATH = "unpick";
 

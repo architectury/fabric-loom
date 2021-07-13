@@ -102,7 +102,7 @@ public class MigrateMappingsTask extends AbstractLoomTask {
 		try {
 			TinyTree currentMappings = mappingsProvider.getMappings();
 			TinyTree targetMappings = getMappings(mappings);
-			migrateMappings(project, extension.getMinecraftMappedProvider(), inputDir, outputDir, currentMappings, targetMappings);
+			migrateMappings(project, extension, extension.getMinecraftMappedProvider(), inputDir, outputDir, currentMappings, targetMappings);
 			project.getLogger().lifecycle(":remapped project written to " + outputDir.toAbsolutePath());
 		} catch (IOException e) {
 			throw new IllegalArgumentException("Error while loading mappings", e);
@@ -160,8 +160,8 @@ public class MigrateMappingsTask extends AbstractLoomTask {
 		}
 	}
 
-	private static void migrateMappings(Project project, MinecraftMappedProvider minecraftMappedProvider,
-										Path inputDir, Path outputDir, TinyTree currentMappings, TinyTree targetMappings
+	private static void migrateMappings(Project project, LoomGradleExtension extension, MinecraftMappedProvider minecraftMappedProvider,
+			Path inputDir, Path outputDir, TinyTree currentMappings, TinyTree targetMappings
 	) throws IOException {
 		project.getLogger().info(":joining mappings");
 
@@ -184,6 +184,13 @@ public class MigrateMappingsTask extends AbstractLoomTask {
 
 		mercury.getClassPath().add(minecraftMappedProvider.getMappedJar().toPath());
 		mercury.getClassPath().add(minecraftMappedProvider.getIntermediaryJar().toPath());
+
+		if (extension.isForge()) {
+			mercury.getClassPath().add(minecraftMappedProvider.getSrgJar().toPath());
+			mercury.getClassPath().add(minecraftMappedProvider.getForgeMappedJar().toPath());
+			mercury.getClassPath().add(minecraftMappedProvider.getForgeIntermediaryJar().toPath());
+			mercury.getClassPath().add(minecraftMappedProvider.getForgeSrgJar().toPath());
+		}
 
 		mercury.getProcessors().add(MercuryRemapper.create(mappingSet));
 

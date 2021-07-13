@@ -110,9 +110,13 @@ public class GenerateSourcesTask extends AbstractLoomTask {
 	}
 
 	public static File getMappedJarFileWithSuffix(Project project, String suffix) {
+		return getMappedJarFileWithSuffix(project, suffix, false);
+	}
+
+	public static File getMappedJarFileWithSuffix(Project project, String suffix, boolean forgeJar) {
 		LoomGradleExtension extension = project.getExtensions().getByType(LoomGradleExtension.class);
 		MappingsProviderImpl mappingsProvider = extension.getMappingsProvider();
-		File mappedJar = mappingsProvider.mappedProvider.getMappedJar();
+		File mappedJar = forgeJar ? mappingsProvider.mappedProvider.getForgeMappedJar() : mappingsProvider.mappedProvider.getMappedJar();
 		String path = mappedJar.getAbsolutePath();
 
 		if (!path.toLowerCase(Locale.ROOT).endsWith(".jar")) {

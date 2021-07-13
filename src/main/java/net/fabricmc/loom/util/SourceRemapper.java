@@ -209,6 +209,9 @@ public class SourceRemapper {
 
 			if (extension.isForge()) {
 				m.getClassPath().add(extension.getMinecraftMappedProvider().getSrgJar().toPath());
+				m.getClassPath().add(extension.getMinecraftMappedProvider().getForgeMappedJar().toPath());
+				m.getClassPath().add(extension.getMinecraftMappedProvider().getForgeIntermediaryJar().toPath());
+				m.getClassPath().add(extension.getMinecraftMappedProvider().getForgeSrgJar().toPath());
 			}
 
 			Set<File> files = project.getConfigurations()

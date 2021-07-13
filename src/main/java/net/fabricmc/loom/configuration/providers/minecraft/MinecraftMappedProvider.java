@@ -69,9 +69,13 @@ public class MinecraftMappedProvider extends DependencyProvider {
 			.build();
 
 	private File inputJar;
+	private File inputForgeJar;
 	private File minecraftMappedJar;
 	private File minecraftIntermediaryJar;
 	private File minecraftSrgJar;
+	private File forgeMappedJar;
+	private File forgeIntermediaryJar;
+	private File forgeSrgJar;
 
 	private MinecraftProviderImpl minecraftProvider;
 
@@ -90,6 +94,7 @@ public class MinecraftMappedProvider extends DependencyProvider {
 		}
 
 		boolean isForgeAtDirty = getExtension().isForge() && getExtension().getMappingsProvider().patchedProvider.isAtDirty();
+		TinyRemapper[] remapperArray = new TinyRemapper[] {null};
 
 		if (!minecraftMappedJar.exists() || !getIntermediaryJar().exists() || (getExtension().isForge() && !getSrgJar().exists()) || isRefreshDeps() || isForgeAtDirty) {
 			if (minecraftMappedJar.exists()) {
@@ -107,7 +112,7 @@ public class MinecraftMappedProvider extends DependencyProvider {
 			}
 
 			try {
-				mapMinecraftJar();
+				mapMinecraftJar(remapperArray);
 			} catch (Throwable t) {
 				// Cleanup some some things that may be in a bad state now
 				DownloadUtil.delete(minecraftMappedJar);
@@ -115,12 +120,35 @@ public class MinecraftMappedProvider extends DependencyProvider {
 				getExtension().getMinecraftProvider().deleteFiles();
 
 				if (getExtension().isForge()) {
-					minecraftSrgJar.delete();
+					DownloadUtil.delete(minecraftSrgJar);
 				}
 
 				getExtension().getMappingsProvider().cleanFiles();
 				throw new RuntimeException("Failed to remap minecraft", t);
 			}
+		}
+
+		if (getExtension().isForge() && (!getForgeMappedJar().exists() || !getForgeIntermediaryJar().exists() || !getForgeSrgJar().exists() || isRefreshDeps() || isForgeAtDirty)) {
+			if (getForgeMappedJar().exists()) {
+				getForgeMappedJar().delete();
+			}
+
+			getForgeMappedJar().getParentFile().mkdirs();
+			getForgeIntermediaryJar().delete();
+			getForgeSrgJar().delete();
+
+			try {
+				mapForgeJar(remapperArray);
+			} catch (Throwable t) {
+				DownloadUtil.delete(forgeMappedJar);
+				DownloadUtil.delete(forgeSrgJar);
+				DownloadUtil.delete(forgeIntermediaryJar);
+				throw new RuntimeException("Failed to remap forge", t);
+			}
+		}
+
+		if (remapperArray[0] != null) {
+			remapperArray[0].finish();
 		}
 
 		if (!minecraftMappedJar.exists()) {
@@ -129,36 +157,31 @@ public class MinecraftMappedProvider extends DependencyProvider {
 
 		addDependencies(dependency, postPopulationScheduler);
 
-		getProject().afterEvaluate(project -> {
-			if (getExtension().isForge() && !OperatingSystem.isCIBuild()) {
-				try {
-					ForgeSourcesRemapper.addBaseForgeSources(project);
-				} catch (IOException e) {
-					e.printStackTrace();
+		if (getExtension().isForge()) {
+			getProject().getDependencies().add(Constants.Configurations.FORGE_NAMED,
+					getProject().getDependencies().module("net.minecraftforge-loom:forge:" + getJarVersionString("mapped")));
+
+			getProject().afterEvaluate(project -> {
+				if (!OperatingSystem.isCIBuild()) {
+					try {
+						ForgeSourcesRemapper.addBaseForgeSources(project);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
 				}
-			}
-		});
+			});
+		}
 	}
 
-	private void mapMinecraftJar() throws Exception {
-		String fromM = "official";
-
-		MappingsProviderImpl mappingsProvider = getExtension().getMappingsProvider();
-
-		Path input = inputJar.toPath();
-		Path outputMapped = minecraftMappedJar.toPath();
-		Path outputIntermediary = minecraftIntermediaryJar.toPath();
-		Path outputSrg = minecraftSrgJar == null ? null : minecraftSrgJar.toPath();
-
+	private TinyRemapper buildRemapper() throws IOException {
 		Path[] libraries = getRemapClasspath(getProject());
 		TinyRemapper remapper = getTinyRemapper();
 		remapper.readClassPath(libraries);
 		remapper.prepareClasses();
-
-		Path tmpAssets = Files.createTempFile("tmpAssets", null);
-		Files.deleteIfExists(tmpAssets);
-		tmpAssets.toFile().deleteOnExit();
-
+		return remapper;
+	}
+	
+	private byte[][] inputBytes(Path input, @Nullable Path assetsOut) throws IOException {
 		List<byte[]> inputByteList = new ArrayList<>();
 
 		try (FileSystemUtil.FileSystemDelegate inputFs = FileSystemUtil.getJarFileSystem(input, false)) {
@@ -181,38 +204,72 @@ public class MinecraftMappedProvider extends DependencyProvider {
 			taskCompleter.complete();
 		}
 
-		try (OutputConsumerPath tmpAssetsPath = new OutputConsumerPath.Builder(tmpAssets).assumeArchive(true).build()) {
-			if (getExtension().isForge()) {
-				tmpAssetsPath.addNonClassFiles(input, NonClassCopyMode.FIX_META_INF, null);
-			} else {
-				tmpAssetsPath.addNonClassFiles(input);
+		if (assetsOut != null) {
+			try (OutputConsumerPath tmpAssetsPath = new OutputConsumerPath.Builder(assetsOut).assumeArchive(true).build()) {
+				if (getExtension().isForge()) {
+					tmpAssetsPath.addNonClassFiles(input, NonClassCopyMode.FIX_META_INF, null);
+				} else {
+					tmpAssetsPath.addNonClassFiles(input);
+				}
 			}
 		}
 
-		byte[][] inputBytes = inputByteList.toArray(new byte[0][0]);
+		return inputByteList.toArray(new byte[0][0]);
+	}
 
+	private void mapMinecraftJar(TinyRemapper[] remapperArray) throws Exception {
+		Path input = inputJar.toPath();
+		Path outputMapped = minecraftMappedJar.toPath();
+		Path outputIntermediary = minecraftIntermediaryJar.toPath();
+		Path outputSrg = minecraftSrgJar == null ? null : minecraftSrgJar.toPath();
+		TinyRemapper remapper = remapperArray[0] = buildRemapper();
+
+		Path assets = Files.createTempFile("assets", null);
+		Files.deleteIfExists(assets);
+		assets.toFile().deleteOnExit();
+		byte[][] inputBytes = inputBytes(input, assets);
+		remap(remapper, "minecraft", inputBytes, assets, input, outputMapped,
+				outputIntermediary, outputSrg, "official");
+	}
+
+	private void mapForgeJar(TinyRemapper[] remapperArray) throws Exception {
+		Path input = inputJar.toPath();
+		Path inputForge = inputForgeJar.toPath();
+		Path outputMapped = forgeMappedJar.toPath();
+		Path outputIntermediary = forgeIntermediaryJar.toPath();
+		Path outputSrg = forgeSrgJar.toPath();
+		TinyRemapper remapper = remapperArray[0] != null ? remapperArray[0] : (remapperArray[0] = buildRemapper());
+
+		Path assets = Files.createTempFile("assets", null);
+		Files.deleteIfExists(assets);
+		assets.toFile().deleteOnExit();
+		byte[][] inputBytes = inputBytes(inputForge, assets);
+		remap(remapper, "forge", inputBytes, assets, input, outputMapped,
+				outputIntermediary, outputSrg, "official");
+	}
+	
+	public void remap(TinyRemapper remapper, String id, byte[][] inputBytes, Path assets, Path mcOfficialJar,
+			Path outputMapped, Path outputIntermediary, Path outputSrg, String fromM) throws IOException {
 		for (String toM : getExtension().isForge() ? Arrays.asList("intermediary", "srg", "named") : Arrays.asList("intermediary", "named")) {
 			Path output = "named".equals(toM) ? outputMapped : "srg".equals(toM) ? outputSrg : outputIntermediary;
 			Stopwatch stopwatch = Stopwatch.createStarted();
-			getProject().getLogger().lifecycle(":remapping minecraft (TinyRemapper, " + fromM + " -> " + toM + ")");
+			getProject().getLogger().lifecycle(":remapping " + id + " (TinyRemapper, " + fromM + " -> " + toM + ")");
 
 			remapper.readInputs(inputBytes);
-			remapper.replaceMappings(getMappings(input, fromM, toM));
-			OutputRemappingHandler.remap(remapper, tmpAssets, output);
+			remapper.replaceMappings(getMappings(mcOfficialJar, fromM, toM));
+			OutputRemappingHandler.remap(remapper, assets, output);
 
-			getProject().getLogger().lifecycle(":remapped minecraft (TinyRemapper, " + fromM + " -> " + toM + ") in " + stopwatch);
+			getProject().getLogger().lifecycle(":remapped " + id + " (TinyRemapper, " + fromM + " -> " + toM + ") in " + stopwatch);
 			remapper.removeInput();
 
 			if (getExtension().isForge() && !"srg".equals(toM)) {
-				getProject().getLogger().info(":running forge finalising tasks");
+				getProject().getLogger().info(":running " + id + " finalising tasks");
 
 				TinyTree yarnWithSrg = getExtension().getMappingsProvider().getMappingsWithSrg();
 				AtRemapper.remap(getProject().getLogger(), output, yarnWithSrg);
 				CoreModClassRemapper.remapJar(output, yarnWithSrg, getProject().getLogger());
 			}
 		}
-
-		remapper.finish();
 	}
 
 	public TinyRemapper getTinyRemapper() throws IOException {
@@ -266,6 +323,12 @@ public class MinecraftMappedProvider extends DependencyProvider {
 		minecraftSrgJar = !getExtension().isForge() ? null : new File(getExtension().getUserCache(), "minecraft-" + getJarVersionString("srg") + ".jar");
 		minecraftMappedJar = new File(getJarDirectory(getExtension().getUserCache(), "mapped"), "minecraft-" + getJarVersionString("mapped") + ".jar");
 		inputJar = getExtension().isForge() ? mappingsProvider.patchedProvider.getMergedJar() : minecraftProvider.getMergedJar();
+		if (getExtension().isForge()) {
+			inputForgeJar = mappingsProvider.patchedProvider.getForgeMergedJar();
+			forgeIntermediaryJar = new File(getExtension().getUserCache(), "forge-" + getJarVersionString("intermediary") + ".jar");
+			forgeSrgJar = new File(getExtension().getUserCache(), "forge-" + getJarVersionString("srg") + ".jar");
+			forgeMappedJar = new File(getJarDirectory(getExtension().getUserCache(), "mapped"), "forge-" + getJarVersionString("mapped") + ".jar");
+		}
 	}
 
 	protected File getJarDirectory(File parentDirectory, String type) {
@@ -286,6 +349,18 @@ public class MinecraftMappedProvider extends DependencyProvider {
 
 	public File getMappedJar() {
 		return minecraftMappedJar;
+	}
+
+	public File getForgeIntermediaryJar() {
+		return forgeIntermediaryJar;
+	}
+
+	public File getForgeSrgJar() {
+		return forgeSrgJar;
+	}
+
+	public File getForgeMappedJar() {
+		return forgeMappedJar;
 	}
 
 	public File getUnpickedJar() {

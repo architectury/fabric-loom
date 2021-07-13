@@ -35,8 +35,10 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.output.NullOutputStream;
 import org.gradle.api.Project;
 import org.gradle.api.file.FileCollection;
+import org.gradle.api.logging.LogLevel;
 import org.zeroturnaround.zip.ZipUtil;
 
 import net.fabricmc.loom.LoomGradleExtension;
@@ -83,8 +85,14 @@ public class SpecialSourceExecutor {
 			spec.setClasspath(specialSourceCp);
 			spec.workingDir(workingDir.toFile());
 			spec.setMain("net.md_5.specialsource.SpecialSource");
-			spec.setStandardOutput(System.out);
-			spec.setErrorOutput(System.out);
+
+			// if running with INFO or DEBUG logging
+			if (project.getGradle().getStartParameter().getLogLevel().compareTo(LogLevel.LIFECYCLE) < 0) {
+				spec.setStandardOutput(System.out);
+			} else {
+				spec.setStandardOutput(NullOutputStream.NULL_OUTPUT_STREAM);
+				spec.setErrorOutput(NullOutputStream.NULL_OUTPUT_STREAM);
+			}
 		}).rethrowFailure().assertNormalExitValue();
 
 		Files.deleteIfExists(stripped);

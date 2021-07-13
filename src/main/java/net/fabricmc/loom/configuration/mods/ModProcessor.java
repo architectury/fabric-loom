@@ -163,6 +163,11 @@ public class ModProcessor {
 				.build();
 
 		remapper.readClassPathAsync(mc);
+
+		if (extension.isForge()) {
+			remapper.readClassPathAsync(mappedProvider.getForgeSrgJar().toPath());
+		}
+
 		remapper.readClassPathAsync(mcDeps);
 
 		final Map<ModDependencyInfo, InputTag> tagMap = new HashMap<>();

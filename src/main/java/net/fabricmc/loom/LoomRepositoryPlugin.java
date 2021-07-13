@@ -34,6 +34,8 @@ import org.gradle.api.initialization.Settings;
 import org.gradle.api.invocation.Gradle;
 import org.gradle.api.plugins.PluginAware;
 
+import net.fabricmc.loom.util.Constants;
+
 public class LoomRepositoryPlugin implements Plugin<PluginAware> {
 	@Override
 	public void apply(PluginAware target) {
@@ -66,6 +68,15 @@ public class LoomRepositoryPlugin implements Plugin<PluginAware> {
 		repositories.maven(repo -> {
 			repo.setName("UserLocalRemappedMods");
 			repo.setUrl(cache.getRemappedModCache());
+		});
+		repositories.maven(repo -> {
+			repo.setName("Architectury");
+			repo.setUrl("https://maven.architectury.dev/");
+			repo.mavenContent(content -> {
+				content.releasesOnly();
+				String[] dep = Constants.Dependencies.FORGE_RUNTIME.split(":");
+				content.includeVersion(dep[0], dep[1], Constants.Dependencies.Versions.FORGE_RUNTIME);
+			});
 		});
 		repositories.maven(repo -> {
 			repo.setName("Fabric");

@@ -177,6 +177,10 @@ public class LaunchProvider extends DependencyProvider {
 
 		remapClasspath.add(getExtension().getMinecraftMappedProvider().getIntermediaryJar());
 
+		if (getExtension().isForge()) {
+			remapClasspath.add(getExtension().getMinecraftMappedProvider().getForgeIntermediaryJar());
+		}
+
 		String str = remapClasspath.stream()
 				.map(File::getAbsolutePath)
 				.collect(Collectors.joining(File.pathSeparator));
