@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -274,7 +275,6 @@ public class MinecraftPatchedProvider extends DependencyProvider {
 
 		Path input = minecraftMergedPatchedSrgAtJar.toPath();
 		if (dirty) {
-			getProject().getLogger().lifecycle(":remapping minecraft (TinyRemapper, srg -> official)");
 			remapPatchedJar(input, getProject().getLogger());
 		}
 
@@ -487,6 +487,7 @@ public class MinecraftPatchedProvider extends DependencyProvider {
 	}
 
 	private void remapPatchedJar(Path input, Logger logger) throws Exception {
+		getProject().getLogger().lifecycle(":remapping minecraft (TinyRemapper, srg -> official)");
 		Path mcOutput = minecraftMergedPatchedJar.toPath();
 		Path forgeOutput = forgeMergedJar.toPath();
 		Path forgeJar = getForgeJar().toPath();
@@ -501,8 +502,10 @@ public class MinecraftPatchedProvider extends DependencyProvider {
 
 			InputTag mcTag = remapper.createInputTag();
 			InputTag forgeTag = remapper.createInputTag();
-			remapper.readInputs(mcTag, input);
-			remapper.readInputs(forgeTag, forgeJar, forgeUserdevJar);
+			List<CompletableFuture<?>> futures = new ArrayList<>();
+			futures.add(remapper.readInputsAsync(mcTag, input));
+			futures.add(remapper.readInputsAsync(forgeTag, forgeJar, forgeUserdevJar));
+			CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 			remapper.apply(outputConsumer, mcTag);
 			remapper.apply(outputConsumerForge, forgeTag);
 		} finally {
